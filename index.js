@@ -490,7 +490,7 @@ bot.command("statistika", async (ctx) => {
 });
 
 bot.command("help", async (ctx) => {
-    const adminUsername = process.env.ADMIN_USERNAME || "admin_username";
+    const adminUsername = 'misterkhabibullayev';
 
     await ctx.reply(
         "❓ <b>Yordam kerakmi yoki savollaringiz bormi?</b>\n\n" +
