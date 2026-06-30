@@ -30,10 +30,9 @@ async function temizleEskiLinkler() {
         // Bot yaratgan barcha taklif havolalari ro'yxatini olamiz
         const adminLinks = await bot.telegram.getChatMenuButton({
             chat_id: channelId,
-        }); // yoki to'g'ridan-to'g'ri guruh havolalari admin qismidan olinadi
+        }); 
 
         // Telegram API orqali guruhdagi barcha o'zi yaratgan havolalarni o'chirish uchun:
-        // Eslatma: Telegram botlar faqat o'zlari yaratgan va faol bo'lgan havolalarni o'chira oladi.
     } catch (err) {
         console.error(
             "Havolalarni tozalashda xatolik (Bu muhim emas, davom etamiz):",
@@ -44,13 +43,15 @@ async function temizleEskiLinkler() {
 
 // Bot ishga tushishi bilan tozalashni chaqiramiz
 temizleEskiLinkler();
+
 // --- Foydalanuvchi /start bosganda ishlaydigan qism ---
 bot.start(async (ctx) => {
     const userId = ctx.from.id;
     const username = ctx.from.username || "no_username";
+    const firstName = ctx.from.first_name || "Mavjud emas"; // 🌟 YANGI O'ZGARISH: Foydalanuvchi ismini (first_name) olyapmiz
 
     try {
-        // --- YANGI QO'SHILGAN QISM: Avval faol VIP obunani tekshiramiz ---
+        // --- Avval faol VIP obunani tekshiramiz ---
         const checkQuery =
             "SELECT status, vip_end FROM users WHERE user_id = $1";
         const checkRes = await db.query(checkQuery, [userId]);
@@ -87,20 +88,20 @@ bot.start(async (ctx) => {
                 }
             }
         }
-        // --- YANGI QISM TUGADI ---
 
-        // 1. Foydalanuvchini bazaga kiritamiz yoki statusini yangilaymiz (Sizning kodingiz)
+        // 1. Foydalanuvchini bazaga kiritamiz yoki statusini yangilaymiz
+        // 🌟 YANGI O'ZGARISH: SQL so'roviga first_name ustuni qo'shildi va u mojaroda (ON CONFLICT) yangilanadi
         const query = `
-            INSERT INTO users (user_id, username, status)
-            VALUES ($1, $2, 'start')
+            INSERT INTO users (user_id, username, first_name, status)
+            VALUES ($1, $2, $3, 'start')
             ON CONFLICT (user_id) 
-            DO UPDATE SET username = $2;
+            DO UPDATE SET username = $2, first_name = $3;
         `;
-        await db.query(query, [userId, username]);
+        await db.query(query, [userId, username, firstName]);
 
-        // 2. Foydalanuvchiga xabar va tugmani ko'rsatamiz (Sizning kodingiz)
+        // 2. Foydalanuvchiga xabar va tugmani ko'rsatamiz
         await ctx.reply(
-            `Salom ${ctx.from.first_name}!\n\nVIP kanalimizga obuna bo'lish uchun quyidagi tugmani bosing:`,
+            `Salom ${firstName}!\n\nVIP kanalimizga obuna bo'lish uchun quyidagi tugmani bosing:`,
             Markup.inlineKeyboard([
                 [Markup.button.callback("💎 VIP Obuna olish", "get_vip")],
             ]),
@@ -116,10 +117,10 @@ bot.action("get_vip", async (ctx) => {
     const userId = ctx.from.id;
     const kartaRaqam = "8600 5304 3145 2237";
     const kartaEgasi = "Raxmanova M.";
-    const obunaNarxi = "15 000 so'm"; // Bu yerga o'zingiz xohlagan narxni yozing
+    const obunaNarxi = "15 000 so'm"; 
 
     try {
-        // 1. Foydalanuvchi statusini 'pending' (to'lov kutyapti) holatiga o'tkazamiz
+        // 1. Foydalanuvchi statusini 'pending' holatiga o'tkazamiz
         const query = `
             UPDATE users 
             SET status = 'pending' 
@@ -127,7 +128,7 @@ bot.action("get_vip", async (ctx) => {
         `;
         await db.query(query, [userId]);
 
-        await ctx.answerCbQuery(); // Soat belgisini to'xtatadi
+        await ctx.answerCbQuery(); 
 
         // 2. Karta raqami, narxi va yo'riqnomani HTML formatida yuboramiz
         await ctx.reply(
@@ -137,7 +138,7 @@ bot.action("get_vip", async (ctx) => {
                 `<code>${kartaRaqam}</code> ${kartaEgasi}\n<i>(Karta raqam ustiga bossangiz, nusxalanadi)</i>\n\n` +
                 `To'lovni amalga oshirganingizdan so'ng, <b>chekni (rasm shaklida)</b> shu yerga yuboring.\n\n` +
                 `* Admin chekni tekshirib, sizga VIP kanalga kirish havolasini yuboradi.`,
-            { parse_mode: "HTML" }, // HTML qildik, endi <code> teglari chiroyli ishlaydi
+            { parse_mode: "HTML" }, 
         );
     } catch (err) {
         console.error("Tugma bosilganda xatolik:", err);
@@ -151,11 +152,11 @@ bot.on("photo", async (ctx) => {
     const username = ctx.from.username
         ? `@${ctx.from.username}`
         : "Mavjud emas";
-    const name = ctx.from.first_name;
-    const photoId = ctx.message.photo[ctx.message.photo.length - 1].file_id; // Eng sifatli rasmni olish
+    const name = ctx.from.first_name || "Mavjud emas";
+    const photoId = ctx.message.photo[ctx.message.photo.length - 1].file_id; 
 
     try {
-        // 1. Avval foydalanuvchi rostdan ham to'lov bosqichidami (pending) shuni bazadan tekshiramiz
+        // 1. Foydalanuvchi rostdan ham to'lov bosqichidami (pending) tekshiramiz
         const checkUser = await db.query(
             "SELECT status FROM users WHERE user_id = $1",
             [userId],
@@ -204,6 +205,10 @@ bot.action(/^approve_(\d+)$/, async (ctx) => {
     const userId = ctx.match[1];
 
     try {
+        // 🌟 YANGI O'ZGARISH: Tasdiqlash xabarida ID o'rniga ismni chiqarish uchun avval bazadan user'ning ismini olamiz
+        const userRes = await db.query("SELECT first_name FROM users WHERE user_id = $1", [userId]);
+        const userNameFromDb = userRes.rows[0]?.first_name || "Foydalanuvchi";
+
         // 1. Bazada foydalanuvchi statusini active qilish
         const updateQuery = `
             UPDATE users 
@@ -214,33 +219,32 @@ bot.action(/^approve_(\d+)$/, async (ctx) => {
         `;
         await db.query(updateQuery, [userId]);
 
-        // 2. O'zingiz yaratgan doimiy "Request Admin Approval" havolasini shu yerga qo'ying
-        // DIQQAT: Havola matni to'liq va to'g'ri ekanligiga ishonch hosil qiling!
         const doimiyHavola = "https://t.me/+snjDckNhhL00ZTRi";
 
-        // 3. Foydalanuvchiga xabarni yuborish (Eski va yangi versiyalar uchun eng xavfsiz format)
+        // 2. Foydalanuvchiga xabarni yuborish
         await bot.telegram
             .sendMessage(
                 userId,
-                `🎉 <b>To'lovingiz muvaffaqiyatli tasdiqlandi!</b>\n\n` +
+                `🎉 <b>To'lovingiz muvaffiyatli tasdiqlandi!</b>\n\n` +
                     `💎 VIP kanalga a'zo bo'lish uchun quyidagi havolaga bosing va <b>"Kanalga qo'shilish so'rovini yuborish" (Request to join)</b> tugmasini bosing:\n\n` +
                     `${doimiyHavola}\n\n` +
                     `⚠️ <i>Bot sizning so'rovingizni avtomatik tekshirib, guruhga qabul qiladi. Obunangiz 1 oy davomida amal qiladi.</i>\n` +
                     `<b>Unutmang agarda botni bloklasangiz VIP kanaldagi obunangiz ham bekor qilinadi va kanaldan chiqarib yuborilasiz!</b>`,
                 {
                     parse_mode: "HTML",
-                    disable_web_page_preview: true, // Xatolik bermaydigan eski va mustahkam usul
+                    disable_web_page_preview: true, 
                 },
             )
             .catch((err) =>
                 console.error("Foydalanuvchiga xabar ketishida xato:", err),
             );
 
-        // 4. Admin xabarini yangilash
+        // 3. Admin xabarini yangilash 
+        // 🌟 YANGI O'ZGARISH: ID o'rniga foydalanuvchining haqiqiy ismi ("userNameFromDb") yoziladigan qilindi
         await ctx
             .editMessageCaption(
-                `✅ Foydalanuvchi (ID: ${userId}) so'rovi tasdiqlandi. Guruhga qo'shilish havolasi yuborildi.`,
-                { reply_markup: null },
+                `✅ <b>${userNameFromDb}</b> so'rovi tasdiqlandi. Guruhga qo'shilish havolasi yuborildi.`,
+                { reply_markup: null, parse_mode: "HTML" } // Ism qalin (b) chiqishi uchun parse_mode HTML qilindi
             )
             .catch((err) =>
                 console.error("Admin xabarini o'zgartirishda xato:", err),
@@ -248,11 +252,8 @@ bot.action(/^approve_(\d+)$/, async (ctx) => {
 
         await ctx.answerCbQuery("Tasdiqlandi!").catch(() => {});
     } catch (err) {
-        // Agar yana xato bersa, terminalda aynan nima xato ekanini ko'rsatadi
         console.error("TASDIQLASHDA ASOSIY XATOLIK:", err);
-        ctx.answerCbQuery("Xatolik yuz berdi (Terminalga qarang)!", {
-            show_alert: true,
-        }).catch(() => {});
+        ctx.answerCbQuery("Xatolik yuz berdi!", { show_alert: true }).catch(() => {});
     }
 });
 
@@ -261,6 +262,10 @@ bot.action(/^reject_(\d+)$/, async (ctx) => {
     const userId = ctx.match[1];
 
     try {
+        // 🌟 YANGI O'ZGARISH: Rad etishda ham chiroyli ism chiqishi uchun bazadan ismni yuklaymiz
+        const userRes = await db.query("SELECT first_name FROM users WHERE user_id = $1", [userId]);
+        const userNameFromDb = userRes.rows[0]?.first_name || "Foydalanuvchi";
+
         // Bazada statusni qaytadan 'start' holatiga qaytarish
         await db.query("UPDATE users SET status = 'start' WHERE user_id = $1", [
             userId,
@@ -274,9 +279,10 @@ bot.action(/^reject_(\d+)$/, async (ctx) => {
         );
 
         // Admin xabarini yangilash
+        // 🌟 YANGI O'ZGARISH: Rad etilganda ham ID o'rniga ism yoziladi
         await ctx.editMessageCaption(
-            `❌ Foydalanuvchi (ID: ${userId}) so'rovi rad etildi.`,
-            { reply_markup: null },
+            `❌ <b>${userNameFromDb}</b> so'rovi rad etildi.`,
+            { reply_markup: null, parse_mode: "HTML" },
         );
         await ctx.answerCbQuery("Rad etildi!");
     } catch (err) {
@@ -285,11 +291,11 @@ bot.action(/^reject_(\d+)$/, async (ctx) => {
     }
 });
 
+// --- Kanalga qo'shilish so'rovi kelganda ishlaydigan qism ---
 bot.on("chat_join_request", async (ctx) => {
     const userId = ctx.chatJoinRequest.from.id;
     const chatId = ctx.chatJoinRequest.chat.id;
 
-    // Terminalda bot so'rovni ko'rayotganini bilish uchun log:
     console.log(
         `🚀 KANALGA QO'SHILISH SO'ROVI KELDI! User ID: ${userId}, Chat ID: ${chatId}`,
     );
@@ -308,7 +314,7 @@ bot.on("chat_join_request", async (ctx) => {
 
             await bot.telegram.sendMessage(
                 userId,
-                "✅ <b>Siz guruhga muvaffaqiyatli qo'shildingiz!</b>\n\nVIP materiallardan bemalol foydalanishingiz mumkin. Obuna muddati: 1 oy." +
+                "✅ <b>Siz guruhga muvaffaqiyatli qo'shildingiz!</b>\n\nVIP materiallardan bemalol foydalanishingiz mumkin. Obuna muddati: 1 oy.\n" +
                     `<b>Unutmang agarda botni bloklasangiz VIP kanaldagi obunangiz ham bekor qilinadi va kanaldan chiqarib yuborilasiz!</b>`,
                 { parse_mode: "HTML" },
             );
@@ -335,7 +341,7 @@ const cron = require("node-cron");
 cron.schedule("0 0 * * *", async () => {
     console.log("⏰ VIP obuna muddatlarini tekshirish taymeri ishga tushdi...");
     const channelId = process.env.VIP_CHANNEL_ID;
-    const adminId = process.env.ADMIN_ID; // --- `.env` faylingizda ADMIN_ID bo'lishi kerak ---
+    const adminId = process.env.ADMIN_ID; 
 
     try {
         // 1. Adminga taymer ishga tushgani haqida xabar berish
@@ -353,17 +359,17 @@ cron.schedule("0 0 * * *", async () => {
 
         // 2. VIP muddati tugagan foydalanuvchilarni aniqlaymiz
         const expiredUsersQuery = `
-            SELECT user_id FROM users 
+            SELECT user_id, first_name FROM users 
             WHERE status = 'active' AND vip_end <= NOW();
         `;
         const res = await db.query(expiredUsersQuery);
         const expiredUsers = res.rows;
 
-        // Agar muddati tugaganlar bo'lsa, adminga ro'yxat hisobotini yuborish uchun o'zgaruvchi
         let adminReport = `📉 <b>VIP muddati tugagan foydalanuvchilar soni: ${expiredUsers.length} ta</b>\n\n`;
 
         for (const user of expiredUsers) {
             const userId = user.user_id;
+            const uName = user.first_name || "Noma'lum"; // 🌟 YANGI O'ZGARISH: Cron hisobotlarida ham ismdan foydalanamiz
 
             try {
                 // 3. Foydalanuvchini guruh/kanaldan chiqarib yuborish
@@ -390,29 +396,26 @@ cron.schedule("0 0 * * *", async () => {
                         ),
                     );
 
-                console.log(
-                    `❌ Foydalanuvchi (ID: ${userId}) VIP muddati tugagani sababli guruhdan chiqarildi.`,
-                );
-                adminReport += `• User ID: <code>${userId}</code> ── guruhdan chiqarildi va xabardor qilindi.\n`;
+                console.log(`❌ Foydalanuvchi ${uName} (ID: ${userId}) VIP muddati tugagani sababli guruhdan chiqarildi.`);
+                adminReport += `• <b>${uName}</b> (<code>${userId}</code>) ── guruhdan chiqarildi.\n`; // 🌟 YANGI O'ZGARISH: Ism qo'shildi
             } catch (memberErr) {
                 console.error(
                     `Foydalanuvchini (ID: ${userId}) guruhdan chiqarishda xatolik:`,
                     memberErr,
                 );
-                adminReport += `• User ID: <code>${userId}</code> ── ⚠️ Chiqarishda xatolik yuz berdi!\n`;
+                adminReport += `• <b>${uName}</b> (<code>${userId}</code>) ── ⚠️ Xatolik yuz berdi!\n`;
             }
         }
 
-        // Agar muddati tugaganlar bo'lgan bo'lsa, adminga natija hisobotini yuboramiz
         if (expiredUsers.length > 0) {
             await bot.telegram
                 .sendMessage(adminId, adminReport, { parse_mode: "HTML" })
                 .catch(() => {});
         }
 
-        // --- QO'SHIMCHA: Muddat tugashiga 2 kun qolganda ogohlantirish tizimi ---
+        // --- Muddat tugashiga 2 kun qolganda ogohlantirish tizimi ---
         const warningUsersQuery = `
-            SELECT user_id FROM users 
+            SELECT user_id, first_name FROM users 
             WHERE status = 'active' 
               AND vip_end <= NOW() + INTERVAL '2 days' 
               AND vip_end > NOW() + INTERVAL '1 day';
@@ -423,6 +426,7 @@ cron.schedule("0 0 * * *", async () => {
             let adminWarnReport = `🔔 <b>Obuna tugashiga 2 kun qolgan foydalanuvchilar (${warnRes.rows.length} ta):</b>\n\n`;
 
             for (const user of warnRes.rows) {
+                const warnName = user.first_name || "Noma'lum";
                 await bot.telegram
                     .sendMessage(
                         user.user_id,
@@ -431,10 +435,9 @@ cron.schedule("0 0 * * *", async () => {
                     )
                     .catch(() => {});
 
-                adminWarnReport += `• User ID: <code>${user.user_id}</code> ── ogohlantirildi.\n`;
+                adminWarnReport += `• <b>${warnName}</b> (<code>${user.user_id}</code>) ── ogohlantirildi.\n`; // 🌟 YANGI O'ZGARISH: Ism qo'shildi
             }
 
-            // Adminga kimlar ogohlantirilgani haqida hisobot
             await bot.telegram
                 .sendMessage(adminId, adminWarnReport, { parse_mode: "HTML" })
                 .catch(() => {});
@@ -448,23 +451,19 @@ bot.command("statistika", async (ctx) => {
     const userId = ctx.from.id;
     const adminId = parseInt(process.env.ADMIN_ID);
 
-    // Faqat admin ko'ra olishi uchun cheklov
     if (userId !== adminId) return;
 
     try {
-        // 1. Hozirda faol VIP obunachilar (status = 'active' va muddati o'tmagan)
         const activeRes = await db.query(`
             SELECT COUNT(*) FROM users 
             WHERE status = 'active' AND vip_end > NOW();
         `);
 
-        // 2. Shu paytgacha VIP sotib olgan barcha foydalanuvchilar (vip_end NULL bo'lmaganlar)
         const totalVipRes = await db.query(`
             SELECT COUNT(*) FROM users 
             WHERE vip_end IS NOT NULL;
         `);
 
-        // 3. VIP tugashiga 1 kun (24 soat) yoki undan kam vaqt qolganlar
         const oneDayLeftRes = await db.query(`
             SELECT COUNT(*) FROM users 
             WHERE status = 'active' 
@@ -513,10 +512,8 @@ bot.command("rassilka", async (ctx) => {
     const userId = ctx.from.id;
     const adminId = parseInt(process.env.ADMIN_ID);
 
-    // Faqat admin ruxsati
     if (userId !== adminId) return;
 
-    // `/rassilka ` so'zidan keyingi matnni ajratib olish
     const xabarMatni = ctx.message.text.split(" ").slice(1).join(" ");
 
     if (!xabarMatni) {
@@ -529,7 +526,6 @@ bot.command("rassilka", async (ctx) => {
     try {
         await ctx.reply("🚀 Xabar tarqatish boshlandi, biroz kuting...");
 
-        // Bazadagi barcha foydalanuvchilarni olish
         const usersRes = await db.query("SELECT user_id FROM users");
         const allUsers = usersRes.rows;
 
@@ -545,10 +541,8 @@ bot.command("rassilka", async (ctx) => {
                 );
                 yetibBorganlar++;
 
-                // Telegram spam blokiga tushmaslik uchun har bir xabardan keyin ozgina kutish (35ms)
                 await new Promise((resolve) => setTimeout(resolve, 35));
             } catch (sendErr) {
-                // Foydalanuvchi botni bloklagan bo'lsa xato beradi
                 bloklaganlar++;
             }
         }
@@ -570,7 +564,7 @@ bot.launch()
     .then(() => console.log("Bot muvaffaqiyatli ishga tushdi... 🚀"))
     .catch((err) => console.error("Botni ishga tushirishda xatolik: ❌", err));
 
-// Botni xavfsiz o'chirish uchun sozlamalar (baza aloqasini uzish)
+// Botni xavfsiz o'chirish uchun sozlamalar
 process.once("SIGINT", () => {
     db.end();
     bot.stop("SIGINT");
