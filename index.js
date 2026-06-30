@@ -226,7 +226,7 @@ bot.action(/^approve_(\d+)$/, async (ctx) => {
                     `💎 VIP kanalga a'zo bo'lish uchun quyidagi havolaga bosing va <b>"Kanalga qo'shilish so'rovini yuborish" (Request to join)</b> tugmasini bosing:\n\n` +
                     `${doimiyHavola}\n\n` +
                     `⚠️ <i>Bot sizning so'rovingizni avtomatik tekshirib, guruhga qabul qiladi. Obunangiz 1 oy davomida amal qiladi.</i>\n` +
-                    `<marked>Unutmang agarda botni bloklasangiz VIP kanaldagi obunangiz ham bekor qilinadi va kanaldan chiqarib yuborilasiz!</marked>`,
+                    `<b>Unutmang agarda botni bloklasangiz VIP kanaldagi obunangiz ham bekor qilinadi va kanaldan chiqarib yuborilasiz!</b>`,
                 {
                     parse_mode: "HTML",
                     disable_web_page_preview: true, // Xatolik bermaydigan eski va mustahkam usul
@@ -309,7 +309,7 @@ bot.on("chat_join_request", async (ctx) => {
             await bot.telegram.sendMessage(
                 userId,
                 "✅ <b>Siz guruhga muvaffaqiyatli qo'shildingiz!</b>\n\nVIP materiallardan bemalol foydalanishingiz mumkin. Obuna muddati: 1 oy." +
-                    `<marked>Unutmang agarda botni bloklasangiz VIP kanaldagi obunangiz ham bekor qilinadi va kanaldan chiqarib yuborilasiz!</marked>`,
+                    `<b>Unutmang agarda botni bloklasangiz VIP kanaldagi obunangiz ham bekor qilinadi va kanaldan chiqarib yuborilasiz!</b>`,
                 { parse_mode: "HTML" },
             );
         } else {
